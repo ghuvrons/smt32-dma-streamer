@@ -18,7 +18,7 @@ typedef struct {
   uint8_t isOverlap;
 } STRM_Buffer_t;
 
-void STRM_Buffer_Read(STRM_Buffer_t *buf, uint8_t *data, uint16_t length);
+uint16_t STRM_Buffer_Read(STRM_Buffer_t *buf, uint8_t *data, uint16_t length);
 void STRM_Buffer_Write(STRM_Buffer_t *buf, uint8_t *data, uint16_t length);
 uint8_t STRM_Buffer_IsAvailable(STRM_Buffer_t *buf);
 

@@ -11,8 +11,6 @@
 #include <stm32f4xx_hal.h>
 #include "dma_streamer/buffer.h"
 
-#define STRM_TX_BUFFER_SIZE   128
-
 #define STRM_BUF_IS_AVAILABLE 0x01
 #define STRM_IS_READING       0x02
 
@@ -38,10 +36,10 @@ typedef uint8_t STRM_Status;
 
 typedef struct {
   UART_HandleTypeDef  *huart;
-  uint8_t             *buffer;
-  uint16_t            bufferSize;
-  uint8_t             txBuffer[STRM_TX_BUFFER_SIZE];
-  uint16_t            txBufferLen;
+  uint8_t             *txBuffer;
+  uint16_t            txBufferSize;
+  uint8_t             *rxBuffer;
+  uint16_t            rxBufferSize;
   uint8_t             *readable;
   uint16_t            readableLen;
   uint16_t            readableSize;
@@ -60,7 +58,9 @@ typedef struct {
 
 } STRM_handlerTypeDef;
 
-HAL_StatusTypeDef STRM_Init(STRM_handlerTypeDef*, uint8_t *buffer, uint16_t bufSize);
+HAL_StatusTypeDef STRM_Init(STRM_handlerTypeDef*,
+                            uint8_t *txBuffer, uint16_t txBufferSize,
+                            uint8_t *rxBuffer, uint16_t rxBufferSize);
 void STRM_Start(STRM_handlerTypeDef*);
 void STRM_CheckOverlap(STRM_handlerTypeDef*);
 HAL_StatusTypeDef STRM_Write(STRM_handlerTypeDef*, uint8_t *rBuf, uint16_t size, uint8_t breakType);
@@ -68,6 +68,7 @@ uint8_t STRM_IsReadable(STRM_handlerTypeDef*);
 uint16_t STRM_Read(STRM_handlerTypeDef*, uint8_t *rBuf, uint16_t size, uint32_t timeout);
 uint16_t STRM_Readline(STRM_handlerTypeDef*, uint8_t *rBuf, uint16_t size, uint32_t timeout);
 void STRM_ReadToBuffer(STRM_handlerTypeDef*, STRM_Buffer_t*, uint16_t length, uint32_t timeout);
+void STRM_Reset(STRM_handlerTypeDef*);
 
 
 #endif /* INC_DMA_STREAMER_H_ */
