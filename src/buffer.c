@@ -39,5 +39,5 @@ void STRM_Buffer_Write(STRM_Buffer_t *buf, uint8_t *data, uint16_t length)
 
 uint8_t STRM_Buffer_IsAvailable(STRM_Buffer_t *buf)
 {
-  return !(buf->r_idx == buf->w_idx && !buf->isOverlap);
+  return buf->buffer && !(buf->r_idx == buf->w_idx && !buf->isOverlap);
 }

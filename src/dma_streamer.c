@@ -22,6 +22,10 @@ HAL_StatusTypeDef STRM_Init(STRM_handlerTypeDef *hdmas,
   hdmas->rxBufferSize = rxBufferSize;
   hdmas->status = 0;
   hdmas->timeout = 2000;
+  hdmas->pos = 0;
+
+  if (hdmas->huart == NULL)
+    return HAL_ERROR;
 
   return HAL_UART_Receive_DMA(hdmas->huart, hdmas->rxBuffer, hdmas->rxBufferSize);
 }

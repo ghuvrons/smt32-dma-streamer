@@ -40,9 +40,6 @@ typedef struct {
   uint16_t            txBufferSize;
   uint8_t             *rxBuffer;
   uint16_t            rxBufferSize;
-  uint8_t             *readable;
-  uint16_t            readableLen;
-  uint16_t            readableSize;
 
   struct {
     uint8_t txMode;
