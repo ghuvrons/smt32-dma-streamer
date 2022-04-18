@@ -63,6 +63,7 @@ void STRM_CheckOverlap(STRM_handlerTypeDef*);
 HAL_StatusTypeDef STRM_Write(STRM_handlerTypeDef*, uint8_t *rBuf, uint16_t size, uint8_t breakType);
 uint8_t STRM_IsReadable(STRM_handlerTypeDef*);
 uint16_t STRM_Read(STRM_handlerTypeDef*, uint8_t *rBuf, uint16_t size, uint32_t timeout);
+void STRM_Unread(STRM_handlerTypeDef*, uint16_t length);
 uint16_t STRM_Readline(STRM_handlerTypeDef*, uint8_t *rBuf, uint16_t size, uint32_t timeout);
 void STRM_ReadToBuffer(STRM_handlerTypeDef*, STRM_Buffer_t*, uint16_t length, uint32_t timeout);
 void STRM_Reset(STRM_handlerTypeDef*);

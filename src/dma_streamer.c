@@ -48,12 +48,12 @@ HAL_StatusTypeDef STRM_Write(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t
   STRM_Status status = STRM_TIMEOUT;
   uint32_t tickstart = STRM_GetTick();
 
-  if(length > hdmas->txBufferSize){
+  if (length > hdmas->txBufferSize) {
     status = STRM_ERROR;
     return status;
   }
   
-  while (hdmas->huart->gState != HAL_UART_STATE_READY){
+  while (hdmas->huart->gState != HAL_UART_STATE_READY) {
     if((STRM_GetTick() - tickstart) >= hdmas->timeout) return status;
   }
 
@@ -64,13 +64,13 @@ HAL_StatusTypeDef STRM_Write(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t
     rBuf++;
   }
 
-  if(breakType == STRM_BREAK_CR || breakType == STRM_BREAK_CRLF){
+  if (breakType == STRM_BREAK_CR || breakType == STRM_BREAK_CRLF) {
     hdmas->txBuffer[i] = '\r';
     length++;
     rBuf++;
     i++;
   }
-  if(breakType == STRM_BREAK_LF || breakType == STRM_BREAK_CRLF){
+  if (breakType == STRM_BREAK_LF || breakType == STRM_BREAK_CRLF) {
     hdmas->txBuffer[i] = '\n';
     length++;
     rBuf++;
@@ -95,9 +95,9 @@ uint16_t STRM_Read(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t size, uin
   uint16_t len = 0;
   uint32_t tickstart = STRM_GetTick();
 
-  if(timeout == 0) timeout = hdmas->timeout;
+  if (timeout == 0) timeout = hdmas->timeout;
 
-  while(len < size){
+  while (len < size) {
     if((STRM_GetTick() - tickstart) >= timeout) break;
     len += readBuffer(hdmas, &(rBuf[len]), size-len, STRM_READALL);
     if(len == 0) STRM_Delay(1);
@@ -106,10 +106,22 @@ uint16_t STRM_Read(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t size, uin
 }
 
 
+void STRM_Unread(STRM_handlerTypeDef *hdmas, uint16_t length)
+{
+  if (length > hdmas->pos)  {
+    length -= hdmas->pos;
+    hdmas->pos = hdmas->rxBufferSize-length;
+  } else {
+    hdmas->pos -= length;
+  }
+}
+
+
 uint16_t STRM_Readline(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t size, uint32_t timeout)
 {
   uint16_t len = 0;
   uint32_t tickstart = STRM_GetTick();
+  uint8_t isSuccess = 0;
 
   if (timeout == 0) timeout = hdmas->timeout;
   if (hdmas->config.breakLine == 0) hdmas->config.breakLine = STRM_BREAK_LF;
@@ -125,10 +137,16 @@ uint16_t STRM_Readline(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t size,
       || (hdmas->config.breakLine == STRM_BREAK_LF
           && rBuf[len-1] == '\n'))
     {
+      isSuccess = 1;
       break;
     }
 
     if(len == 0) STRM_Delay(1);
+  }
+
+  if (!isSuccess) {
+    len = 0;
+    STRM_Unread(hdmas, len);
   }
   return len;
 }
