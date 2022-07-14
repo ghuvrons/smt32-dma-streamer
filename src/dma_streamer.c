@@ -152,16 +152,19 @@ uint16_t STRM_Readline(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t size,
 }
 
 
-void STRM_ReadToBuffer(STRM_handlerTypeDef *hdmas, STRM_Buffer_t *rBuffer, uint16_t length, uint32_t timeout)
+HAL_StatusTypeDef STRM_ReadToBuffer(STRM_handlerTypeDef *hdmas, STRM_Buffer_t *rBuffer, uint16_t length, uint32_t timeout)
 {
+  HAL_StatusTypeDef status = HAL_OK;
   uint16_t pos;
   uint16_t posLimited;
   uint32_t tickstart = STRM_GetTick();
+  uint16_t remainingLength = length;
+  uint16_t willReadLength;
 
   if(timeout == 0) timeout = hdmas->timeout;
 
-  while(length){
-    if ((STRM_GetTick() - tickstart) >= timeout) break;
+  while(remainingLength){
+    if ((STRM_GetTick() - tickstart) >= timeout) return HAL_TIMEOUT;
 
     // read dma available data
     pos = hdmas->rxBufferSize - __HAL_DMA_GET_COUNTER(hdmas->huart->hdmarx);
@@ -171,18 +174,26 @@ void STRM_ReadToBuffer(STRM_handlerTypeDef *hdmas, STRM_Buffer_t *rBuffer, uint1
     }
 
     // copy dma buffer to rBuffer
-    while (pos != hdmas->pos){
+    while (remainingLength && pos != hdmas->pos){
       if (pos > hdmas->pos) {
         posLimited = pos;
       } else {
         posLimited = hdmas->rxBufferSize;
       }
-      length -= (posLimited - hdmas->pos);
-      STRM_Buffer_Write(rBuffer, &(hdmas->rxBuffer[hdmas->pos]), (posLimited - hdmas->pos));
-      hdmas->pos = posLimited;
+
+      willReadLength = (posLimited - hdmas->pos);
+      if (willReadLength > remainingLength) {
+        willReadLength = remainingLength;
+      }
+      STRM_Buffer_Write(rBuffer, &(hdmas->rxBuffer[hdmas->pos]), willReadLength);
+      
+      remainingLength -= willReadLength;
+      hdmas->pos += willReadLength;
       if(hdmas->pos == hdmas->rxBufferSize) hdmas->pos = 0;
     }
   }
+
+  return status;
 }
 
 
