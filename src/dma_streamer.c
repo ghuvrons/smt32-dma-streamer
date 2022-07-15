@@ -33,11 +33,13 @@ HAL_StatusTypeDef STRM_Init(STRM_handlerTypeDef *hdmas,
 
 void STRM_CheckOverlap(STRM_handlerTypeDef *hdmas)
 {
+  // TODO: need check
+
   uint16_t dmaPos = hdmas->rxBufferSize - __HAL_DMA_GET_COUNTER(hdmas->huart->hdmarx);
 
   if(hdmas->pos < dmaPos && (dmaPos - hdmas->pos) < (hdmas->rxBufferSize/2)){
     hdmas->pos = dmaPos;
-    if(hdmas->pos == hdmas->rxBufferSize) hdmas->pos = 0;
+    if(hdmas->pos >= hdmas->rxBufferSize) hdmas->pos = 0;
   }
 }
 
@@ -47,40 +49,41 @@ HAL_StatusTypeDef STRM_Write(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t
   uint16_t i;
   STRM_Status status = STRM_TIMEOUT;
   uint32_t tickstart = STRM_GetTick();
+  uint8_t overSz = 0;
 
-  if (length > hdmas->txBufferSize) {
+  if ((breakType & STRM_BREAK_CR) != 0) overSz++;
+  if ((breakType & STRM_BREAK_LF) != 0) overSz++;
+  if (length > (hdmas->txBufferSize - overSz)) {
     status = STRM_ERROR;
     return status;
   }
   
+  // wait ready
   while (hdmas->huart->gState != HAL_UART_STATE_READY) {
     if((STRM_GetTick() - tickstart) >= hdmas->timeout) return status;
+    STRM_Delay(1);
   }
 
   // write on buffer
   for (i = 0; i < length; i++)
   {
-    hdmas->txBuffer[i] = *rBuf;
+    *(hdmas->txBuffer+i) = *rBuf;
     rBuf++;
   }
 
-  if (breakType == STRM_BREAK_CR || breakType == STRM_BREAK_CRLF) {
-    hdmas->txBuffer[i] = '\r';
-    length++;
-    rBuf++;
+  if ((breakType & STRM_BREAK_CR) != 0) {
+    *(hdmas->txBuffer+i) = '\r';
     i++;
   }
-  if (breakType == STRM_BREAK_LF || breakType == STRM_BREAK_CRLF) {
-    hdmas->txBuffer[i] = '\n';
-    length++;
-    rBuf++;
+  if ((breakType & STRM_BREAK_LF) != 0) {
+    *(hdmas->txBuffer+i) = '\n';
     i++;
   }
 
   if (hdmas->config.txMode == STRM_CONF_TXMODE_DMA)
-    return HAL_UART_Transmit_DMA(hdmas->huart, hdmas->txBuffer, length);
+    return HAL_UART_Transmit_DMA(hdmas->huart, hdmas->txBuffer, i);
   else
-    return HAL_UART_Transmit(hdmas->huart, hdmas->txBuffer, length, 1000);
+    return HAL_UART_Transmit(hdmas->huart, hdmas->txBuffer, i, 1000);
 }
 
 
@@ -95,11 +98,12 @@ uint16_t STRM_Read(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t size, uin
   uint16_t len = 0;
   uint32_t tickstart = STRM_GetTick();
 
+  if (rBuf == NULL) return 0;
   if (timeout == 0) timeout = hdmas->timeout;
 
   while (len < size) {
     if((STRM_GetTick() - tickstart) >= timeout) break;
-    len += readBuffer(hdmas, &(rBuf[len]), size-len, STRM_READALL);
+    len += readBuffer(hdmas, rBuf+len, size-len, STRM_READALL);
     if(len == 0) STRM_Delay(1);
   }
   return len;
@@ -108,6 +112,9 @@ uint16_t STRM_Read(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t size, uin
 
 void STRM_Unread(STRM_handlerTypeDef *hdmas, uint16_t length)
 {
+  while (length > hdmas->rxBufferSize) {
+    length -= hdmas->rxBufferSize;
+  }
   if (length > hdmas->pos)  {
     length -= hdmas->pos;
     hdmas->pos = hdmas->rxBufferSize-length;
@@ -123,19 +130,19 @@ uint16_t STRM_Readline(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t size,
   uint32_t tickstart = STRM_GetTick();
   uint8_t isSuccess = 0;
 
+  if (rBuf == NULL) return 0;
   if (timeout == 0) timeout = hdmas->timeout;
   if (hdmas->config.breakLine == 0) hdmas->config.breakLine = STRM_BREAK_LF;
 
   while (len < size) {
     if ((STRM_GetTick() - tickstart) >= timeout) break;
-    len += readBuffer(hdmas, &(rBuf[len]), size-len, hdmas->config.breakLine);
+    len += readBuffer(hdmas, rBuf+len, size-len, hdmas->config.breakLine);
 
-    if((  hdmas->config.breakLine == STRM_BREAK_CRLF
-          && len > 1 && rBuf[len-2] == '\r' && rBuf[len-1] == '\n')
-      || (hdmas->config.breakLine == STRM_BREAK_CR
-          && rBuf[len-1] == '\r')
-      || (hdmas->config.breakLine == STRM_BREAK_LF
-          && rBuf[len-1] == '\n'))
+    if (len > 0
+        && ((hdmas->config.breakLine == STRM_BREAK_CRLF && len > 1 && *(rBuf+len-2) == '\r'
+                                                                   && *(rBuf+len-1) == '\n')
+            || (hdmas->config.breakLine == STRM_BREAK_CR && *(rBuf+len-1) == '\r')
+            || (hdmas->config.breakLine == STRM_BREAK_LF && *(rBuf+len-1) == '\n')))
     {
       isSuccess = 1;
       break;
@@ -185,11 +192,11 @@ HAL_StatusTypeDef STRM_ReadToBuffer(STRM_handlerTypeDef *hdmas, STRM_Buffer_t *r
       if (willReadLength > remainingLength) {
         willReadLength = remainingLength;
       }
-      STRM_Buffer_Write(rBuffer, &(hdmas->rxBuffer[hdmas->pos]), willReadLength);
+      STRM_Buffer_Write(rBuffer, hdmas->rxBuffer+hdmas->pos, willReadLength);
       
       remainingLength -= willReadLength;
       hdmas->pos += willReadLength;
-      if(hdmas->pos == hdmas->rxBufferSize) hdmas->pos = 0;
+      if(hdmas->pos >= hdmas->rxBufferSize) hdmas->pos = 0;
     }
   }
 
@@ -210,23 +217,22 @@ static uint16_t readBuffer(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t s
   uint16_t pos = hdmas->rxBufferSize - __HAL_DMA_GET_COUNTER(hdmas->huart->hdmarx);
 
   // read buffer until find "\r\n"
-  while(pos != hdmas->pos && len < size){
-    curByte = hdmas->rxBuffer[hdmas->pos];
+  while (pos != hdmas->pos) {
+    if (len >= size) break;
+    curByte = *(hdmas->rxBuffer+hdmas->pos);
 
-    rBuf[len] = curByte;
+    *rBuf = curByte;
+    rBuf++;
     len++;
 
     // pos add as circular
     hdmas->pos++;
-    if(hdmas->pos == hdmas->rxBufferSize) hdmas->pos = 0;
+    if(hdmas->pos >= hdmas->rxBufferSize) hdmas->pos = 0;
 
     if(readtype != STRM_READALL){
-      if((  readtype == STRM_BREAK_CRLF
-            && len > 1 && prevByte == '\r' && curByte == '\n')
-        || (readtype == STRM_BREAK_CR
-            && curByte == '\r')
-        || (readtype == STRM_BREAK_LF
-            && curByte == '\n'))
+      if((readtype == STRM_BREAK_CRLF && len > 1 && prevByte == '\r' && curByte == '\n')
+         || (readtype == STRM_BREAK_CR && curByte == '\r')
+         || (readtype == STRM_BREAK_LF && curByte == '\n'))
       {
         break;
       }
