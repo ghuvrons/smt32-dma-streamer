@@ -44,19 +44,11 @@ void STRM_CheckOverlap(STRM_handlerTypeDef *hdmas)
 }
 
 
-HAL_StatusTypeDef STRM_Write(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t length, uint8_t breakType)
+uint16_t STRM_Write(STRM_handlerTypeDef *hdmas, const uint8_t *rBuf, uint16_t length, uint8_t breakType)
 {
   uint16_t i;
   STRM_Status status = STRM_TIMEOUT;
   uint32_t tickstart = STRM_GetTick();
-  uint8_t overSz = 0;
-
-  if ((breakType & STRM_BREAK_CR) != 0) overSz++;
-  if ((breakType & STRM_BREAK_LF) != 0) overSz++;
-  if (length > (hdmas->txBufferSize - overSz)) {
-    status = STRM_ERROR;
-    return status;
-  }
   
   // wait ready
   while (hdmas->huart->gState != HAL_UART_STATE_READY) {
@@ -65,12 +57,14 @@ HAL_StatusTypeDef STRM_Write(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t
   }
 
   // write on buffer
-  for (i = 0; i < length; i++)
-  {
-    *(hdmas->txBuffer+i) = *rBuf;
-    rBuf++;
-  }
+  if (hdmas->config.txMode == STRM_CONF_TXMODE_DMA)
+    status = HAL_UART_Transmit_DMA(hdmas->huart, rBuf, length);
+  else
+    status = HAL_UART_Transmit(hdmas->huart, rBuf, length, 1000);
+  if (status != HAL_OK) return 0;
 
+  // send break line
+  i = 0;
   if ((breakType & STRM_BREAK_CR) != 0) {
     *(hdmas->txBuffer+i) = '\r';
     i++;
@@ -80,10 +74,14 @@ HAL_StatusTypeDef STRM_Write(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t
     i++;
   }
 
-  if (hdmas->config.txMode == STRM_CONF_TXMODE_DMA)
-    return HAL_UART_Transmit_DMA(hdmas->huart, hdmas->txBuffer, i);
-  else
-    return HAL_UART_Transmit(hdmas->huart, hdmas->txBuffer, i, 1000);
+  if (i > 0) {
+    if (hdmas->config.txMode == STRM_CONF_TXMODE_DMA)
+      status = HAL_UART_Transmit_DMA(hdmas->huart, hdmas->txBuffer, i);
+    else
+      status = HAL_UART_Transmit(hdmas->huart, hdmas->txBuffer, i, 1000);
+    if (status != HAL_OK) return 0;
+  }
+  return length+i;
 }
 
 
@@ -159,7 +157,7 @@ uint16_t STRM_Readline(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t size,
 }
 
 
-HAL_StatusTypeDef STRM_ReadToBuffer(STRM_handlerTypeDef *hdmas, STRM_Buffer_t *rBuffer, uint16_t length, uint32_t timeout)
+HAL_StatusTypeDef STRM_ReadToBuffer(STRM_handlerTypeDef *hdmas, Buffer_t *rBuffer, uint16_t length, uint32_t timeout)
 {
   HAL_StatusTypeDef status = HAL_OK;
   uint16_t pos;
@@ -192,7 +190,7 @@ HAL_StatusTypeDef STRM_ReadToBuffer(STRM_handlerTypeDef *hdmas, STRM_Buffer_t *r
       if (willReadLength > remainingLength) {
         willReadLength = remainingLength;
       }
-      STRM_Buffer_Write(rBuffer, hdmas->rxBuffer+hdmas->pos, willReadLength);
+      Buffer_Write(rBuffer, hdmas->rxBuffer+hdmas->pos, willReadLength);
       
       remainingLength -= willReadLength;
       hdmas->pos += willReadLength;
