@@ -8,7 +8,7 @@
 #ifndef DMA_STREAMER_INC_DMA_STREAMER_H_
 #define DMA_STREAMER_INC_DMA_STREAMER_H_
 
-#include <stm32f4xx_hal.h>
+#include <main.h>
 #include <buffer.h>
 
 #define STRM_BUF_IS_AVAILABLE 0x01
