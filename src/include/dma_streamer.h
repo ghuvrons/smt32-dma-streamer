@@ -60,12 +60,12 @@ HAL_StatusTypeDef STRM_Init(STRM_handlerTypeDef*,
                             uint8_t *rxBuffer, uint16_t rxBufferSize);
 void STRM_Start(STRM_handlerTypeDef*);
 void STRM_CheckOverlap(STRM_handlerTypeDef*);
-uint16_t STRM_Write(STRM_handlerTypeDef*, const uint8_t *rBuf, uint16_t size, uint8_t breakType);
+uint16_t STRM_Write(STRM_handlerTypeDef*, const uint8_t *wBuf, uint16_t size, uint8_t breakType);
 uint8_t STRM_IsReadable(STRM_handlerTypeDef*);
 uint16_t STRM_Read(STRM_handlerTypeDef*, uint8_t *rBuf, uint16_t size, uint32_t timeout);
 void STRM_Unread(STRM_handlerTypeDef*, uint16_t length);
 uint16_t STRM_Readline(STRM_handlerTypeDef*, uint8_t *rBuf, uint16_t size, uint32_t timeout);
-HAL_StatusTypeDef STRM_ReadToBuffer(STRM_handlerTypeDef*, Buffer_t*, uint16_t length, uint32_t timeout);
+uint16_t STRM_ReadIntoBuffer(STRM_handlerTypeDef*, Buffer_t*, uint16_t length, uint32_t timeout);
 void STRM_Reset(STRM_handlerTypeDef*);
 
 
