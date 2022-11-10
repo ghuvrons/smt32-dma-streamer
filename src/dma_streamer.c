@@ -91,20 +91,24 @@ uint8_t STRM_IsReadable(STRM_handlerTypeDef *hdmas)
 }
 
 
-uint16_t STRM_Read(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t size, uint32_t timeout)
+uint16_t STRM_Read(STRM_handlerTypeDef *hdmas, uint8_t *dst, uint16_t size, uint32_t timeout)
 {
-  uint16_t len = 0;
+  uint16_t readlen = 0;
+  uint16_t tmpReadLen = 0;
   uint32_t tickstart = STRM_GetTick();
 
-  if (rBuf == NULL) return 0;
+  if (dst == NULL) return 0;
   if (timeout == 0) timeout = hdmas->timeout;
 
-  while (len < size) {
-    if((STRM_GetTick() - tickstart) >= timeout) break;
-    len += readBuffer(hdmas, rBuf+len, size-len, STRM_READALL);
-    if(len == 0) STRM_Delay(1);
+  while (size) {
+    if ((STRM_GetTick() - tickstart) >= timeout) break;
+    tmpReadLen = readBuffer(hdmas, dst, size, STRM_READALL);
+    if (tmpReadLen == 0) STRM_Delay(1);
+    size -= tmpReadLen;
+    dst += tmpReadLen;
+    readlen += tmpReadLen;
   }
-  return len;
+  return readlen;
 }
 
 
@@ -124,7 +128,8 @@ void STRM_Unread(STRM_handlerTypeDef *hdmas, uint16_t length)
 
 uint16_t STRM_Readline(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t size, uint32_t timeout)
 {
-  uint16_t len = 0;
+  uint16_t readlen = 0;
+  uint16_t tmpReadLen = 0;
   uint32_t tickstart = STRM_GetTick();
   uint8_t isSuccess = 0;
 
@@ -132,28 +137,31 @@ uint16_t STRM_Readline(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t size,
   if (timeout == 0) timeout = hdmas->timeout;
   if (hdmas->config.breakLine == 0) hdmas->config.breakLine = STRM_BREAK_LF;
 
-  while (len < size) {
+  while (size) {
     if ((STRM_GetTick() - tickstart) >= timeout) break;
-    len += readBuffer(hdmas, rBuf+len, size-len, hdmas->config.breakLine);
+    tmpReadLen = readBuffer(hdmas, rBuf+readlen, size, hdmas->config.breakLine);
+    readlen += tmpReadLen;
+    size -= tmpReadLen;
 
-    if (len > 0
-        && ((hdmas->config.breakLine == STRM_BREAK_CRLF && len > 1 && *(rBuf+len-2) == '\r'
-                                                                   && *(rBuf+len-1) == '\n')
-            || (hdmas->config.breakLine == STRM_BREAK_CR && *(rBuf+len-1) == '\r')
-            || (hdmas->config.breakLine == STRM_BREAK_LF && *(rBuf+len-1) == '\n')))
+    if (readlen > 0
+        && ((hdmas->config.breakLine == STRM_BREAK_CRLF && readlen > 1
+                                                              && *(rBuf+readlen-2) == '\r'
+                                                              && *(rBuf+readlen-1) == '\n')
+            || (hdmas->config.breakLine == STRM_BREAK_CR && *(rBuf+readlen-1) == '\r')
+            || (hdmas->config.breakLine == STRM_BREAK_LF && *(rBuf+readlen-1) == '\n')))
     {
       isSuccess = 1;
       break;
     }
 
-    if(len == 0) STRM_Delay(1);
+    if(tmpReadLen == 0) STRM_Delay(1);
   }
 
   if (!isSuccess) {
-    len = 0;
-    STRM_Unread(hdmas, len);
+    readlen = 0;
+    STRM_Unread(hdmas, readlen);
   }
-  return len;
+  return readlen;
 }
 
 
