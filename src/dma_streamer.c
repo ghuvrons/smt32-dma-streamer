@@ -139,7 +139,15 @@ uint16_t STRM_Readline(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t size,
 
   while (size) {
     if ((STRM_GetTick() - tickstart) >= timeout) break;
-    tmpReadLen = readBuffer(hdmas, rBuf+readlen, size, hdmas->config.breakLine);
+    if (hdmas->config.breakLine == STRM_BREAK_CRLF
+        && readlen > 0
+        && *(rBuf+readlen-1) == '\r')
+    {
+      tmpReadLen = readBuffer(hdmas, rBuf+readlen, 1, STRM_BREAK_NONE);
+    } else {
+      tmpReadLen = readBuffer(hdmas, rBuf+readlen, size, hdmas->config.breakLine);
+    }
+
     readlen += tmpReadLen;
     size -= tmpReadLen;
 
@@ -173,6 +181,7 @@ uint16_t STRM_ReadIntoBuffer(STRM_handlerTypeDef *hdmas, Buffer_t *rBuffer, uint
   uint32_t tickstart = STRM_GetTick();
   uint16_t remainingLength = length;
   uint16_t willReadLength;
+  int32_t tmpWriteLen;
 
   if (timeout == 0) timeout = hdmas->timeout;
 
@@ -198,11 +207,14 @@ uint16_t STRM_ReadIntoBuffer(STRM_handlerTypeDef *hdmas, Buffer_t *rBuffer, uint
       if (willReadLength > remainingLength) {
         willReadLength = remainingLength;
       }
-      len += Buffer_Write(rBuffer, hdmas->rxBuffer+hdmas->pos, willReadLength);
-      
-      remainingLength -= willReadLength;
-      hdmas->pos += willReadLength;
-      if (hdmas->pos >= hdmas->rxBufferSize) hdmas->pos = 0;
+      tmpWriteLen = Buffer_Write(rBuffer, hdmas->rxBuffer+hdmas->pos, willReadLength);
+
+      if (tmpWriteLen > 0) {
+        len += tmpWriteLen;
+        remainingLength -= tmpWriteLen;
+        hdmas->pos += tmpWriteLen;
+        if (hdmas->pos >= hdmas->rxBufferSize) hdmas->pos = 0;
+      } else if (tmpWriteLen < 0) break;
     }
   }
 
@@ -233,10 +245,10 @@ static uint16_t readBuffer(STRM_handlerTypeDef *hdmas, uint8_t *rBuf, uint16_t s
 
     // pos add as circular
     hdmas->pos++;
-    if(hdmas->pos >= hdmas->rxBufferSize) hdmas->pos = 0;
+    if (hdmas->pos >= hdmas->rxBufferSize) hdmas->pos = 0;
 
-    if(readtype != STRM_READALL){
-      if((readtype == STRM_BREAK_CRLF && len > 1 && prevByte == '\r' && curByte == '\n')
+    if (readtype != STRM_READALL) {
+      if ((readtype == STRM_BREAK_CRLF && len > 1 && prevByte == '\r' && curByte == '\n')
          || (readtype == STRM_BREAK_CR && curByte == '\r')
          || (readtype == STRM_BREAK_LF && curByte == '\n'))
       {
