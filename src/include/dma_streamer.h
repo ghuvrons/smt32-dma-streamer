@@ -45,6 +45,10 @@ typedef struct {
     uint8_t txMode;
     uint8_t breakLine;
   } config;
+
+  uint32_t (*getTick)(void);
+  void (*delay)(uint32_t);
+
   /*
    * bit  0. is buffer available
    *      1. is readable is read
@@ -58,7 +62,7 @@ typedef struct {
 HAL_StatusTypeDef STRM_Init(STRM_handlerTypeDef*,
                             uint8_t *txBuffer, uint16_t txBufferSize,
                             uint8_t *rxBuffer, uint16_t rxBufferSize);
-void STRM_Start(STRM_handlerTypeDef*);
+HAL_StatusTypeDef STRM_Start(STRM_handlerTypeDef*);
 void STRM_CheckOverlap(STRM_handlerTypeDef*);
 uint16_t STRM_Write(STRM_handlerTypeDef*, const uint8_t *wBuf, uint16_t size, uint8_t breakType);
 uint8_t STRM_IsReadable(STRM_handlerTypeDef*);
